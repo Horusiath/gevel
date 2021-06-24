@@ -7,7 +7,7 @@ mod gist;
 use crate::gist::IndexInspector;
 use memoffset::offset_of;
 use pgx::pg_sys::{
-    BlockNumber, BufferGetPage, Item, ItemIdData, ItemPointerData, Oid, PageGetFreeSpace,
+    BlockNumber, BufferGetPage, IndexTupleData, ItemIdData, OffsetNumber, Oid, PageGetFreeSpace,
     PageHeaderData, RangeVar, RangeVarGetRelidExtended, ReadBuffer, Relation, ReleaseBuffer,
     BLCKSZ, MAXIMUM_ALIGNOF,
 };
@@ -22,6 +22,13 @@ pub fn gist_tree(rel_oid: Oid) -> String {
     let index = IndexInspector::open(rel_oid);
     let tree = index.get_tree(None);
     tree.to_string()
+}
+
+#[pg_extern]
+pub fn gist_stat(rel_oid: Oid) -> String {
+    let index = IndexInspector::open(rel_oid);
+    let stats = index.stats(None);
+    stats.to_string()
 }
 
 /// Wrapper around PostgreSQL page buffer.
@@ -44,6 +51,7 @@ pub static PAGE_SIZE: u32 = BLCKSZ
         & !(MAXIMUM_ALIGNOF - 1));
 
 pub const GIST_ROOT_BLKNO: BlockNumber = 0;
+pub const TUPLE_IS_INVALID: OffsetNumber = 0xfffe;
 
 /// Wrapper around PostgreSQL Page, equipped with convenient safe API for common operations.
 struct Page(pg_sys::Page, Buffer); // keep the buffer around, so it's not prematurely released
@@ -98,8 +106,13 @@ impl Page {
         pd_linp[offset - 1]
     }
 
-    pub fn get_item(&self, item_id: ItemIdData) -> Item {
-        unsafe { (self.0 as *mut u8).offset(item_id.lp_off() as isize) as Item }
+    pub fn get_index_tuple(&self, item_id: ItemIdData) -> IndexTuple {
+        let data = unsafe {
+            let ptr = (self.0 as *mut u8).offset(item_id.lp_off() as isize) as *mut IndexTupleData;
+            ptr.as_ref()
+        }
+        .expect("PageGetItem failed");
+        IndexTuple(data)
     }
 
     pub fn free_space(&self) -> usize {
@@ -107,9 +120,19 @@ impl Page {
     }
 }
 
-fn item_ptr_get_blk_num(ptr: ItemPointerData) -> BlockNumber {
-    let block_id = ptr.ip_blkid;
-    (((block_id.bi_hi as u32) << 16) | (block_id.bi_lo as u32)) as BlockNumber
+pub struct IndexTuple<'a>(&'a IndexTupleData);
+
+impl<'a> IndexTuple<'a> {
+    pub fn block_num(&self) -> BlockNumber {
+        let ptr = self.0.t_tid;
+        let block_id = ptr.ip_blkid;
+        (((block_id.bi_hi as u32) << 16) | (block_id.bi_lo as u32)) as BlockNumber
+    }
+
+    pub fn is_invalid(&self) -> bool {
+        let ptr = self.0.t_tid;
+        ptr.ip_posid == TUPLE_IS_INVALID
+    }
 }
 
 #[inline(always)]
