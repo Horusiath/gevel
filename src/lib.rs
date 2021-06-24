@@ -7,9 +7,9 @@ mod gist;
 use crate::gist::IndexInspector;
 use memoffset::offset_of;
 use pgx::pg_sys::{
-    BlockNumber, BufferGetPage, GISTPageOpaqueData, Item, ItemIdData, ItemPointerData, Oid,
-    PageGetFreeSpace, PageHeaderData, RangeVar, RangeVarGetRelidExtended, ReadBuffer, Relation,
-    ReleaseBuffer, BLCKSZ, F_LEAF, MAXIMUM_ALIGNOF,
+    BlockNumber, BufferGetPage, Item, ItemIdData, ItemPointerData, Oid, PageGetFreeSpace,
+    PageHeaderData, RangeVar, RangeVarGetRelidExtended, ReadBuffer, Relation, ReleaseBuffer,
+    BLCKSZ, MAXIMUM_ALIGNOF,
 };
 use pgx::*;
 use std::mem::size_of;
@@ -105,11 +105,6 @@ impl Page {
     pub fn free_space(&self) -> usize {
         unsafe { PageGetFreeSpace(self.0) }
     }
-}
-
-#[inline]
-fn gist_page_is_leaf(page: &GISTPageOpaqueData) -> bool {
-    page.flags as u32 == F_LEAF
 }
 
 fn item_ptr_get_blk_num(ptr: ItemPointerData) -> BlockNumber {

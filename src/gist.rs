@@ -1,7 +1,7 @@
-use crate::{gist_page_is_leaf, item_ptr_get_blk_num, Buffer, Page, GIST_ROOT_BLKNO, PAGE_SIZE};
+use crate::{item_ptr_get_blk_num, Buffer, Page, GIST_ROOT_BLKNO, PAGE_SIZE};
 use pgx::pg_sys::{
     index_close, index_open, AccessExclusiveLock, BlockNumber, GISTPageOpaqueData, IndexTupleData,
-    InvalidBlockNumber, OffsetNumber, Oid, Relation,
+    InvalidBlockNumber, OffsetNumber, Oid, Relation, F_LEAF,
 };
 use std::fmt::{Display, Formatter};
 
@@ -31,15 +31,15 @@ impl IndexInspector {
         let page = Page::new(buf);
         let max_offset = page.max_offset();
         let free_space = page.free_space();
-        let opaque: &GISTPageOpaqueData = page.as_special();
-        let is_leaf = gist_page_is_leaf(opaque);
+        let gist_page = GistPage::new(&page);
+        let is_leaf = gist_page.is_leaf();
 
         let mut node = IndexTreeNode::new(
             max_offset,
             free_space,
             offset,
             blk,
-            opaque.rightlink,
+            gist_page.right_link(),
             is_leaf,
         );
 
@@ -64,6 +64,10 @@ impl IndexInspector {
         }
 
         node
+    }
+
+    pub fn get_stat(&self) -> StatTree {
+        todo!()
     }
 }
 
@@ -150,7 +154,9 @@ impl Display for IndexTree {
     }
 }
 
-struct IndexStat {
+pub struct StatTree(StatTreeNode);
+
+struct StatTreeNode {
     level: i32,
     num_pages: i32,
     num_leaf_pages: i32,
@@ -160,4 +166,23 @@ struct IndexStat {
     tuples_size: u64,
     leaf_tuple_size: u64,
     total_size: u64,
+}
+
+struct GistPage<'a> {
+    opaque: &'a GISTPageOpaqueData,
+}
+
+impl<'a> GistPage<'a> {
+    fn new(page: &'a Page) -> Self {
+        let opaque = page.as_special();
+        GistPage { opaque }
+    }
+
+    fn is_leaf(&self) -> bool {
+        self.opaque.flags as u32 == F_LEAF
+    }
+
+    fn right_link(&self) -> BlockNumber {
+        self.opaque.rightlink
+    }
 }
