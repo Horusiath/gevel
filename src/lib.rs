@@ -20,7 +20,8 @@ pg_module_magic!();
 #[pg_extern]
 pub fn gist_tree(rel_oid: Oid) -> String {
     let index = IndexInspector::open(rel_oid);
-    index.to_string()
+    let tree = index.get_tree(None);
+    tree.to_string()
 }
 
 /// Wrapper around PostgreSQL page buffer.
@@ -29,10 +30,6 @@ struct Buffer(pg_sys::Buffer);
 impl Buffer {
     fn new(rel: Relation, blk: BlockNumber) -> Self {
         Buffer(unsafe { ReadBuffer(rel, blk) })
-    }
-
-    fn page(&self) -> Page {
-        unsafe { Page(BufferGetPage(self.0)) }
     }
 }
 
@@ -49,9 +46,14 @@ pub static PAGE_SIZE: u32 = BLCKSZ
 pub const GIST_ROOT_BLKNO: BlockNumber = 0;
 
 /// Wrapper around PostgreSQL Page, equipped with convenient safe API for common operations.
-struct Page(pg_sys::Page);
+struct Page(pg_sys::Page, Buffer); // keep the buffer around, so it's not prematurely released
 
 impl Page {
+    pub fn new(buf: Buffer) -> Self {
+        let page_ptr = unsafe { BufferGetPage(buf.0) };
+        Page(page_ptr, buf)
+    }
+
     fn header(&self) -> &PageHeaderData {
         unsafe { (self.0 as *mut PageHeaderData).as_ref() }.expect("PageHeader was NULL")
     }
