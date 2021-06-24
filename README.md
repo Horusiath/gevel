@@ -33,13 +33,13 @@ Returned data may look like this:
 ```
                                  gist_tree                                   
 ------------------------------------------------------------------------------
- 0(l:0) blk: 0 numTuple: 6 free: 7260B (11.03%) rightlink: Invalid Block     +
-     1(l:1) blk: 1 numTuple: 38 free: 2548B (68.77%) rightlink: 2            +
-     2(l:1) blk: 3 numTuple: 31 free: 2624B (67.84%) rightlink: Invalid Block+
-     3(l:1) blk: 4 numTuple: 23 free: 3928B (51.86%) rightlink: 3            +
-     4(l:1) blk: 2 numTuple: 33 free: 2000B (75.49%) rightlink: 5            +
-     5(l:1) blk: 5 numTuple: 24 free: 4420B (45.83%) rightlink: 6            +
-     6(l:1) blk: 6 numTuple: 32 free: 2348B (71.23%) rightlink: 4            +
+ 0(l:0) blk: 0 numTuple: 6 free: 7260B (11.03%) rightlink: Invalid Block     
+     1(l:1) blk: 1 numTuple: 38 free: 2548B (68.77%) rightlink: 2            
+     2(l:1) blk: 3 numTuple: 31 free: 2624B (67.84%) rightlink: Invalid Block
+     3(l:1) blk: 4 numTuple: 23 free: 3928B (51.86%) rightlink: 3            
+     4(l:1) blk: 2 numTuple: 33 free: 2000B (75.49%) rightlink: 5            
+     5(l:1) blk: 5 numTuple: 24 free: 4420B (45.83%) rightlink: 6            
+     6(l:1) blk: 6 numTuple: 32 free: 2348B (71.23%) rightlink: 4            
 ```
 
 Printed gist tree applied left-pad nesting for child pages. Numbers are as follows:
@@ -51,3 +51,19 @@ Printed gist tree applied left-pad nesting for child pages. Numbers are as follo
 - `free: 2548B` - number of free space left on that page (Postgres pages by default are 8KiB).
 - `(68.77%)` - how much of the page space is occupied.
 - `rightlink: 2` - block number of the next page if any.
+
+Another function is `gist_stat(oid)` which returns an aggregated statistics about the index:
+
+```
+               gist_stat                
+----------------------------------------
+ Number of levels:          2          
+ Number of pages:           7          
+ Number of leaf pages:      6          
+ Number of tuples:          187        
+ Number of invalid tuples:  0          
+ Number of leaf tuples:     181        
+ Total size of tuples:      31992 bytes
+ Total size of leaf tuples: 31092 bytes
+ Total size of index:       57344 bytes
+```
